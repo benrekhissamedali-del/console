@@ -1,0 +1,6 @@
+{
+  "name": "DualBridge",
+  "description": "PlayStation PS4 DualShock 4 and PS5 DualSense PC connectivity, calibration, and custom button remapping studio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
