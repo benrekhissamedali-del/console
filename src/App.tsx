@@ -1,12 +1,8 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { CopyPlus, Plus, Trash2, Usb, X } from 'lucide-react';
 import { TopBar, WorkspaceView } from './components/TopBar';
 import { ControllerSchematic } from './components/ControllerSchematic';
 import { MappingInspector } from './components/MappingInspector';
-import { CalibrationWorkspace } from './components/CalibrationWorkspace';
-import { MacrosWorkspace } from './components/MacrosWorkspace';
-import { BindingsTable } from './components/BindingsTable';
-import { ExportWorkspace } from './components/ExportWorkspace';
 import { OutputSandbox } from './components/OutputSandbox';
 import { DEFAULT_PROFILES, PS_BUTTON_CATALOG } from './data/presets';
 import {
@@ -20,6 +16,27 @@ import { isWebHIDSupported } from './utils/gamepadHardware';
 
 const STORAGE_KEY_PROFILES = 'dualbridge_profiles_v1';
 const STORAGE_KEY_ACTIVE_ID = 'dualbridge_active_profile_v1';
+
+const CalibrationWorkspace = lazy(() =>
+  import('./components/CalibrationWorkspace').then((module) => ({
+    default: module.CalibrationWorkspace,
+  }))
+);
+const MacrosWorkspace = lazy(() =>
+  import('./components/MacrosWorkspace').then((module) => ({
+    default: module.MacrosWorkspace,
+  }))
+);
+const BindingsTable = lazy(() =>
+  import('./components/BindingsTable').then((module) => ({
+    default: module.BindingsTable,
+  }))
+);
+const ExportWorkspace = lazy(() =>
+  import('./components/ExportWorkspace').then((module) => ({
+    default: module.ExportWorkspace,
+  }))
+);
 
 function loadInitialProfiles(): ControllerProfile[] {
   try {
@@ -337,85 +354,93 @@ export default function App() {
 
       {/* Main Content Stage */}
       <main className="mx-auto w-full max-w-[1440px] flex-1 px-6 py-6">
-        {activeView === 'mapper' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            <div className="lg:col-span-8 space-y-6">
-              <ControllerSchematic
-                model={activeProfile.targetModel}
-                lightbarColor={activeProfile.lightbarColor}
-                selectedButton={selectedButton}
-                onSelectButton={setSelectedButton}
-                mappings={activeProfile.mappings}
-                liveInput={liveInput}
-                onVirtualButton={pressVirtualButton}
-                onVirtualStick={setVirtualStick}
-                onVirtualTrigger={setVirtualTrigger}
-              />
-
-              <OutputSandbox events={eventLog} onClear={clearEventLog} />
+        <Suspense
+          fallback={
+            <div className="py-12 text-center text-sm text-slate-400" role="status">
+              Loading workspace…
             </div>
+          }
+        >
+          {activeView === 'mapper' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              <div className="lg:col-span-8 space-y-6">
+                <ControllerSchematic
+                  model={activeProfile.targetModel}
+                  lightbarColor={activeProfile.lightbarColor}
+                  selectedButton={selectedButton}
+                  onSelectButton={setSelectedButton}
+                  mappings={activeProfile.mappings}
+                  liveInput={liveInput}
+                  onVirtualButton={pressVirtualButton}
+                  onVirtualStick={setVirtualStick}
+                  onVirtualTrigger={setVirtualTrigger}
+                />
 
-            <div className="lg:col-span-4">
-              <MappingInspector
-                model={activeProfile.targetModel}
-                selectedButton={selectedButton}
-                mapping={activeProfile.mappings[selectedButton]}
-                macros={activeProfile.macros || []}
-                listenControllerMode={listenControllerMode}
-                onToggleListenController={() =>
-                  setListenControllerMode((v) => !v)
-                }
-                onUpdateMapping={handleUpdateMapping}
-                onResetButton={handleResetButton}
-                onOpenMacrosTab={() => setActiveView('macros')}
-              />
+                <OutputSandbox events={eventLog} onClear={clearEventLog} />
+              </div>
+
+              <div className="lg:col-span-4">
+                <MappingInspector
+                  model={activeProfile.targetModel}
+                  selectedButton={selectedButton}
+                  mapping={activeProfile.mappings[selectedButton]}
+                  macros={activeProfile.macros || []}
+                  listenControllerMode={listenControllerMode}
+                  onToggleListenController={() =>
+                    setListenControllerMode((v) => !v)
+                  }
+                  onUpdateMapping={handleUpdateMapping}
+                  onResetButton={handleResetButton}
+                  onOpenMacrosTab={() => setActiveView('macros')}
+                />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {activeView === 'calibration' && (
-          <CalibrationWorkspace
-            profile={activeProfile}
-            liveInput={liveInput}
-            supportsVibration={hardware.supportsVibration}
-            hidConnected={hardware.hidConnected}
-            onUpdateProfile={updateActiveProfile}
-            onTestRumble={testRumble}
-            onSyncLightbar={syncLightbarColor}
-            onVirtualStick={setVirtualStick}
-          />
-        )}
+          {activeView === 'calibration' && (
+            <CalibrationWorkspace
+              profile={activeProfile}
+              liveInput={liveInput}
+              supportsVibration={hardware.supportsVibration}
+              hidConnected={hardware.hidConnected}
+              onUpdateProfile={updateActiveProfile}
+              onTestRumble={testRumble}
+              onSyncLightbar={syncLightbarColor}
+              onVirtualStick={setVirtualStick}
+            />
+          )}
 
-        {activeView === 'macros' && (
-          <MacrosWorkspace
-            profile={activeProfile}
-            liveInput={liveInput}
-            onUpdateProfile={updateActiveProfile}
-            onJumpToMapperButton={(btnId) => {
-              setSelectedButton(btnId);
-              setActiveView('mapper');
-            }}
-          />
-        )}
+          {activeView === 'macros' && (
+            <MacrosWorkspace
+              profile={activeProfile}
+              liveInput={liveInput}
+              onUpdateProfile={updateActiveProfile}
+              onJumpToMapperButton={(btnId) => {
+                setSelectedButton(btnId);
+                setActiveView('mapper');
+              }}
+            />
+          )}
 
-        {activeView === 'bindings' && (
-          <BindingsTable
-            profile={activeProfile}
-            liveInput={liveInput}
-            selectedButton={selectedButton}
-            onEditButton={(btnId) => {
-              setSelectedButton(btnId);
-              setActiveView('mapper');
-            }}
-          />
-        )}
+          {activeView === 'bindings' && (
+            <BindingsTable
+              profile={activeProfile}
+              liveInput={liveInput}
+              selectedButton={selectedButton}
+              onEditButton={(btnId) => {
+                setSelectedButton(btnId);
+                setActiveView('mapper');
+              }}
+            />
+          )}
 
-        {activeView === 'export' && (
-          <ExportWorkspace
-            profile={activeProfile}
-            onImportProfile={handleImportProfile}
-          />
-        )}
+          {activeView === 'export' && (
+            <ExportWorkspace
+              profile={activeProfile}
+              onImportProfile={handleImportProfile}
+            />
+          )}
+        </Suspense>
       </main>
 
       {/* Connect Controller / Direct WebHID Modal */}
